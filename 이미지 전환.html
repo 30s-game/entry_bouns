@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Entry Image → RLE Converter</title>
+<style>
+  :root {
+    --bg:#0f1220; --fg:#e9ecff; --muted:#9aa1ff;
+    --card:#171a33; --accent:#6c7bff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: linear-gradient(180deg, #0b0e1a, var(--bg));
+    color: var(--fg);
+  }
+  .wrap { max-width: 880px; margin: 24px auto; padding: 16px; }
+  .card {
+    background: var(--card); border-radius: 14px; padding: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  h1 { margin: 0 0 6px; font-size: 22px; }
+  p { margin: 6px 0 12px; color: var(--muted); line-height: 1.5; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  input[type="file"] { color: var(--fg); }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+    padding: 10px 14px; cursor: pointer;
+  }
+  button.secondary { background: #2a2f6a; }
+  textarea {
+    width: 100%; min-height: 160px; resize: vertical; margin-top: 12px;
+    background: #0c1024; color: #e8ebff; border: 1px solid #2a2f6a;
+    border-radius: 10px; padding: 12px; font-size: 13px;
+  }
+  .foot { margin-top: 10px; font-size: 12px; color: #aab0ff; }
+  .badge {
+    display:inline-block; padding: 4px 8px; border-radius: 999px;
+    background:#23286b; color:#cdd1ff; font-size:12px; margin-right:6px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Entry Image → RLE Converter</h1>
+      <p>
+        함수바나나의 엔트리 붓 블록용 이미지 변환기입니다.
+        이미지를 넣으면 <b>RLE 압축 코드</b> (<code>12R|3B|7G|</code>)를 생성합니다.
+      </p>
+
+      <div class="row">
+        <span class="badge">로컬 처리</span>
+        <span class="badge">서버 업로드 없음</span>
+        <span class="badge">GitHub Pages OK</span>
+      </div>
+
+      <hr style="border:0;border-top:1px solid #2a2f6a;margin:14px 0">
+
+      <div class="row">
+        <input id="imgInput" type="file" accept="image/*" />
+        <button id="convertBtn">변환</button>
+        <button class="secondary" id="copyBtn">코드 복사</button>
+      </div>
+
+      <canvas id="canvas" style="display:none;"></canvas>
+
+      <textarea id="output" placeholder="여기에 12R|3B|7G| 같은 코드가 생성됩니다"></textarea>
+
+      <div class="foot">
+        팁: 이미지 가로·세로를 <b>80px 이하</b>로 줄이면 엔트리에서 가장 안정적입니다.
+      </div>
+    </div>
+  </div>
+
+<script>
+const input = document.getElementById("imgInput");
+const btn = document.getElementById("convertBtn");
+const copyBtn = document.getElementById("copyBtn");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const output = document.getElementById("output");
+
+function pixelToColor(r, g, b) {
+  if (g > r && g > b) return "G";
+  if (b > r && b > g) return "B";
+  return "R";
+}
+
+btn.addEventListener("click", () => {
+  const file = input.files[0];
+  if (!file) {
+    alert("이미지를 선택해 주세요.");
+    return;
+  }
+
+  const img = new Image();
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+    let result = "";
+    let prevColor = null;
+    let count = 0;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+
+      // 투명 픽셀은 건너뜀 (엔트리 부담 감소)
+      if (a === 0) continue;
+
+      const color = pixelToColor(r, g, b);
+
+      if (color === prevColor) {
+        count++;
+      } else {
+        if (prevColor !== null) {
+          result += count + prevColor + "|";
+        }
+        prevColor = color;
+        count = 1;
+      }
+    }
+
+    if (prevColor !== null) {
+      result += count + prevColor + "|";
+    }
+
+    output.value = result;
+  };
+
+  img.src = URL.createObjectURL(file);
+});
+
+copyBtn.addEventListener("click", async () => {
+  if (!output.value) return;
+  try {
+    await navigator.clipboard.writeText(output.value);
+    alert("코드가 복사되었습니다.");
+  } catch {
+    alert("복사에 실패했습니다.");
+  }
+});
+</script>
+</body>
+</html>
