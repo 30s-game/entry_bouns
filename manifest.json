@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "엔트리 3D 변수 조작기",
+  "version": "1.0",
+  "description": "엔트리 내부 변수 및 함수에 접근합니다.",
+  "permissions": ["scripting"],
+  "content_scripts": [
+    {
+      "matches": ["https://playentry.org/*"],
+      "js": ["content.js"],
+      "run_at": "document_end",
+      "world": "MAIN"
+    }
+  ]
+}
