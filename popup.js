@@ -3,7 +3,7 @@ document.getElementById('saveBtn').onclick = () => {
     const scroll = document.getElementById('scrollOn').checked;
     
     chrome.storage.local.set({ targetId: id, scrollOn: scroll }, () => {
-        alert("설정 저장 완료, 파트너!");
+        alert("설정 저장 완료");
     });
 };
 
