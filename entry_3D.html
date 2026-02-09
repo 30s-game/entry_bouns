@@ -1,145 +1,29 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>엔트리 3D 제작 도우미</title>
-    <style>
-        :root {
-            --primary-color: #00c4c4;
-            --bg-color: #f4f7f6;
-        }
-        body {
-            font-family: 'Pretendard', sans-serif;
-            background-color: var(--bg-color);
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 500px;
-        }
-        h1 { color: var(--primary-color); font-size: 1.5rem; text-align: center; }
-        .input-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; }
-        input, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-        }
-        .btn-area { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        button {
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
-        }
-        .btn-generate { background-color: var(--primary-color); color: white; }
-        .btn-copy { background-color: #333; color: white; }
-        button:hover { opacity: 0.8; }
-        #code-output {
-            margin-top: 20px;
-            background: #282c34;
-            color: #abb2bf;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: monospace;
-            white-space: pre-wrap;
-            word-break: break-all;
-            font-size: 0.85rem;
-            min-height: 100px;
-        }
-    </style>
-</head>
-<body>
+// 엔트리가 완전히 로드되었는지 확인 후 실행
+const injectControl = () => {
+    if (typeof Entry !== 'undefined' && Entry.variableContainer) {
+        console.log("엔트리 감지 성공! 파트너, 조작을 시작하지.");
 
-<div class="container">
-    <h1>🚀 엔트리 3D 도우미</h1>
-    <p style="font-size: 0.8rem; color: #666; text-align: center;">값을 입력하고 코드를 복사해서 엔트리에 붙여넣으세요!</p>
+        // 예시 1: 특정 이름을 가진 변수 값 변경 함수
+        window.setEntryVar = function(name, value) {
+            const list = Entry.variableContainer.variables_;
+            const target = list.find(v => v.getName() === name);
+            if (target) {
+                target.setValue(value);
+                console.log(`${name} 변수를 ${value}로 변경했어.`);
+            }
+        };
 
-    <div class="input-group">
-        <label>도형 종류</label>
-        <select id="shape">
-            <option value="cube">정육면체 (Cube)</option>
-            <option value="sphere">구 (Sphere)</option>
-            <option value="plane">바닥 (Plane)</option>
-        </select>
-    </div>
-
-    <div class="input-group">
-        <label>X 좌표 (가로)</label>
-        <input type="number" id="posX" value="0">
-    </div>
-
-    <div class="input-group">
-        <label>Y 좌표 (세로)</label>
-        <input type="number" id="posY" value="0">
-    </div>
-
-    <div class="input-group">
-        <label>Z 좌표 (높이)</label>
-        <input type="number" id="posZ" value="0">
-    </div>
-
-    <div class="input-group">
-        <label>크기 (Scale)</label>
-        <input type="number" id="scale" value="1">
-    </div>
-
-    <div class="btn-area">
-        <button class="btn-generate" onclick="generateCode()">코드 생성</button>
-        <button class="btn-copy" onclick="copyCode()">코드 복사</button>
-    </div>
-
-    <div id="code-output">여기에 코드가 나타납니다...</div>
-</div>
-
-<script>
-    function generateCode() {
-        // 1. 값 가져오기 (문자열을 숫자로 변환)
-        const shape = document.getElementById('shape').value;
-        const x = Number(document.getElementById('posX').value);
-        const y = Number(document.getElementById('posY').value);
-        const z = Number(document.getElementById('posZ').value);
-        const scale = Number(document.getElementById('scale').value);
-
-        // 2. 엔트리 파이썬 코드 템플릿 생성
-        // 입문자용이므로 가장 기초적인 생성 및 위치 설정 코드로 구성
-        let code = `# 엔트리 3D 생성 코드\n`;
-        
-        if(shape === 'cube') {
-            code += `obj = Entry.create_3d_object("cube")\n`;
-        } else if(shape === 'sphere') {
-            code += `obj = Entry.create_3d_object("sphere")\n`;
-        } else {
-            code += `obj = Entry.create_3d_object("plane")\n`;
-        }
-
-        code += `obj.set_position(${x}, ${y}, ${z})\n`;
-        code += `obj.set_scale(${scale}, ${scale}, ${scale})\n`;
-        code += `print("3D 오브젝트 생성 완료!")`;
-
-        // 3. 화면에 출력
-        document.getElementById('code-output').innerText = code;
+        // 예시 2: 엔트리 함수 강제 실행 (3D 오브젝트 생성 등)
+        window.spawnCube = function(x, y, z) {
+            if (Entry.create_3d_object) {
+                const obj = Entry.create_3d_object("cube");
+                obj.set_position(x, y, z);
+            }
+        };
+    } else {
+        // 아직 로딩 중이면 0.5초 뒤에 다시 시도
+        setTimeout(injectControl, 500);
     }
+};
 
-    function copyCode() {
-        const codeText = document.getElementById('code-output').innerText;
-        navigator.clipboard.writeText(codeText).then(() => {
-            alert("코드가 클립보드에 복사되었습니다! 엔트리 파이썬 창에 붙여넣으세요.");
-        });
-    }
-</script>
-
-</body>
-</html>
-
+injectControl();
