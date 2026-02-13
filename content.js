@@ -6,16 +6,15 @@
     window.addEventListener('mousedown', (e) => { if (e.button === 2) isRightClick = true; });
     window.addEventListener('mouseup', (e) => { if (e.button === 2) isRightClick = false; });
     window.addEventListener('contextmenu', (e) => {
-        // [?우클릭] 변수가 있을 때만 기본 메뉴 차단 (선택 사항)
-        if (typeof Entry !== 'undefined' && Entry.variableContainer?.variables_.find(v => v.getName() === "[?우클릭]")) {
+        if (typeof Entry !== 'undefined' && Entry.variableContainer?.variables_.find(v => v.getName().includes("[?우클릭]"))) {
             e.preventDefault();
         }
     });
 
-    // 휠 이벤트 리스너
+    // 휠 이벤트
     window.addEventListener('wheel', (e) => {
         if (typeof Entry === 'undefined' || !Entry.variableContainer) return;
-        const v = Entry.variableContainer.variables_.find(v => v.getName() === "[?스크롤]");
+        const v = Entry.variableContainer.variables_.find(v => v.getName().trim() === "[?스크롤]");
         if (v) {
             lastWheelTime = Date.now();
             v.setValue(e.deltaY > 0 ? "DOWN" : "UP");
@@ -30,77 +29,63 @@
         const canvas = document.querySelector('#entryCanvas') || document.querySelector('canvas');
 
         vars.forEach(v => {
-            const n = v.getName();
+            const n = v.getName().trim(); // 공백 제거 후 비교
             const val = v.getValue();
 
-            switch(n) {
-                case "[?함수바나나]":
-                    if (val !== "TRUE") v.setValue("TRUE");
-                    break;
-
-                case "[?전체화면]":
-                    const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement);
-                    const fullStatus = isFull ? "TRUE" : "FALSE";
-                    if (val !== fullStatus) v.setValue(fullStatus);
-                    break;
-
-                case "[?운영체제]":
-                    const os = navigator.platform.toLowerCase();
-                    let osName = "UNKNOWN";
-                    if (os.includes("win")) osName = "WINDOWS";
-                    else if (os.includes("mac")) osName = "MACOS";
-                    else if (os.includes("linux")) osName = "LINUX";
-                    if (val !== osName) v.setValue(osName);
-                    break;
-
-                case "[?스크롤]":
-                    if (Date.now() - lastWheelTime > 150 && val !== "NONE") {
-                        v.setValue("NONE");
-                    }
-                    break;
-
-                case "[?우클릭]":
-                    const rcStatus = isRightClick ? "TRUE" : "FALSE";
-                    if (val !== rcStatus) v.setValue(rcStatus);
-                    break;
-
-                case "[?마우스 커서]":
-                    if (val && val !== "NONE" && canvas.style.cursor !== `url("${val}"), auto`) {
-                        canvas.style.cursor = `url("${val}"), auto`;
-                    }
-                    break;
-
-                case "[?유저id]":
-                    if (val !== Entry.user._id) v.setValue(Entry.user._id || "GUEST");
-                    break;
-
-                case "[?화면 해상도]":
-                    const res = canvas ? `${canvas.width}x${canvas.height}` : "0x00";
-                    if (val !== res) v.setValue(res);
-                    break;
-
-                case "[?링크 열기]":
-                    if (val !== "NONE" && val !== "") {
-                        let url = val;
-                        if (!url.includes("playentry.org")) {
-                            url = "https://playentry.org/redirect?external=" + encodeURIComponent(url);
-                        }
-                        window.open(url, '_blank');
-                        v.setValue("NONE"); // 실행 후 초기화
-                    }
-                    break;
-
-                case "[?계정생성일자]":
-                    if (val !== Entry.user.created) v.setValue(Entry.user.created || "");
-                    break;
-
-                case "[?계정유형]":
-                    if (val !== Entry.user.role) v.setValue(Entry.user.role || "member");
-                    break;
-
-                case "[?프로필id]":
-                    if (val !== Entry.user.image) v.setValue(Entry.user.image || "");
-                    break;
+            if (n === "[?함수바나나]") {
+                if (val !== "TRUE") v.setValue("TRUE");
+            } 
+            else if (n === "[?전체화면]") {
+                const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement);
+                const res = isFull ? "TRUE" : "FALSE";
+                if (val !== res) v.setValue(res);
+            } 
+            else if (n === "[?운영체제]") {
+                const os = navigator.platform.toLowerCase();
+                let osName = os.includes("win") ? "WINDOWS" : os.includes("mac") ? "MACOS" : "LINUX";
+                if (val !== osName) v.setValue(osName);
+            } 
+            else if (n === "[?스크롤]") {
+                if (Date.now() - lastWheelTime > 150 && val !== "NONE") {
+                    v.setValue("NONE");
+                }
+            } 
+            else if (n === "[?우클릭]") {
+                const rcStatus = isRightClick ? "TRUE" : "FALSE";
+                if (val !== rcStatus) v.setValue(rcStatus);
+            } 
+            else if (n === "[?마우스 커서]") {
+                if (val && val !== "NONE" && val !== 0 && canvas) {
+                    canvas.style.cursor = `url("${val}"), auto`;
+                }
+            } 
+            else if (n === "[?유저id]") {
+                const uid = Entry.user._id || "GUEST";
+                if (val !== uid) v.setValue(uid);
+            } 
+            else if (n === "[?화면 해상도]") {
+                const res = canvas ? `${canvas.width}x${canvas.height}` : "0x00";
+                if (val !== res) v.setValue(res);
+            } 
+            else if (n === "[?링크 열기]") {
+                if (val !== "NONE" && val !== 0 && val !== "") {
+                    let url = val;
+                    if (!url.includes("playentry.org")) url = "https://playentry.org/redirect?external=" + encodeURIComponent(url);
+                    window.open(url, '_blank');
+                    v.setValue("NONE");
+                }
+            } 
+            else if (n === "[?계정생성일자]") {
+                const created = Entry.user.created || "unknown";
+                if (val !== created) v.setValue(created);
+            } 
+            else if (n === "[?계정유형]") {
+                const role = Entry.user.role || "member";
+                if (val !== role) v.setValue(role);
+            } 
+            else if (n === "[?프로필id]") {
+                const pimg = Entry.user.image || "none";
+                if (val !== pimg) v.setValue(pimg);
             }
         });
 
