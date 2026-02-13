@@ -84,7 +84,7 @@
         const vars = Entry.variableContainer.variables_;
         vars.forEach(v => {
             const n = v.getName();
-            if (n === "{작품ID]") {
+            if (n === "[작품ID]") {
                 if (v.getValue() !== Entry.projectId) v.setValue(Entry.projectId || "");
             }
             if (n === "[마우스x]") v.setValue(Entry.stage.mouseTickX);
@@ -96,3 +96,4 @@
 
     setInterval(coreLoop, 500);
 })();
+
