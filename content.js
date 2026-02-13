@@ -6,91 +6,90 @@
     window.addEventListener('mousedown', (e) => { if (e.button === 2) isRightClick = true; });
     window.addEventListener('mouseup', (e) => { if (e.button === 2) isRightClick = false; });
     window.addEventListener('contextmenu', (e) => {
-        if (typeof Entry !== 'undefined' && Entry.variableContainer?.variables_.find(v => v.getName().includes("[?우클릭]"))) {
+        if (typeof Entry !== 'undefined' && Entry.variableContainer?.variables_.some(v => v.getName().includes("우클릭"))) {
             e.preventDefault();
         }
     });
 
-    // 휠 이벤트
+    // 휠 이벤트 - 시간 기록만 확실히
     window.addEventListener('wheel', (e) => {
-        if (typeof Entry === 'undefined' || !Entry.variableContainer) return;
-        const v = Entry.variableContainer.variables_.find(v => v.getName().trim() === "[?스크롤]");
-        if (v) {
-            lastWheelTime = Date.now();
-            v.setValue(e.deltaY > 0 ? "DOWN" : "UP");
-            if (Entry.requestUpdate) Entry.requestUpdate();
-        }
+        lastWheelTime = Date.now();
+        window._lastScrollDir = e.deltaY > 0 ? "DOWN" : "UP";
     }, { passive: true });
 
     const coreLoop = () => {
-        if (typeof Entry === 'undefined' || !Entry.variableContainer || !Entry.user) return;
+        if (typeof Entry === 'undefined' || !Entry.variableContainer) return;
 
         const vars = Entry.variableContainer.variables_;
         const canvas = document.querySelector('#entryCanvas') || document.querySelector('canvas');
+        const user = Entry.user || {};
 
         vars.forEach(v => {
-            const n = v.getName().trim(); // 공백 제거 후 비교
-            const val = v.getValue();
+            const n = v.getName();
+            
+            // 1. [?함수바나나]
+            if (n.includes("함수바나나")) v.setValue("TRUE");
 
-            if (n === "[?함수바나나]") {
-                if (val !== "TRUE") v.setValue("TRUE");
-            } 
-            else if (n === "[?전체화면]") {
+            // 2. [?전체화면]
+            if (n.includes("전체화면")) {
                 const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement);
-                const res = isFull ? "TRUE" : "FALSE";
-                if (val !== res) v.setValue(res);
-            } 
-            else if (n === "[?운영체제]") {
-                const os = navigator.platform.toLowerCase();
-                let osName = os.includes("win") ? "WINDOWS" : os.includes("mac") ? "MACOS" : "LINUX";
-                if (val !== osName) v.setValue(osName);
-            } 
-            else if (n === "[?스크롤]") {
-                if (Date.now() - lastWheelTime > 150 && val !== "NONE") {
-                    v.setValue("NONE");
-                }
-            } 
-            else if (n === "[?우클릭]") {
-                const rcStatus = isRightClick ? "TRUE" : "FALSE";
-                if (val !== rcStatus) v.setValue(rcStatus);
-            } 
-            else if (n === "[?마우스 커서]") {
-                if (val && val !== "NONE" && val !== 0 && canvas) {
-                    canvas.style.cursor = `url("${val}"), auto`;
-                }
-            } 
-            else if (n === "[?유저id]") {
-                const uid = Entry.user._id || "GUEST";
-                if (val !== uid) v.setValue(uid);
-            } 
-            else if (n === "[?화면 해상도]") {
-                const res = canvas ? `${canvas.width}x${canvas.height}` : "0x00";
-                if (val !== res) v.setValue(res);
-            } 
-            else if (n === "[?링크 열기]") {
-                if (val !== "NONE" && val !== 0 && val !== "") {
-                    let url = val;
-                    if (!url.includes("playentry.org")) url = "https://playentry.org/redirect?external=" + encodeURIComponent(url);
-                    window.open(url, '_blank');
-                    v.setValue("NONE");
-                }
-            } 
-            else if (n === "[?계정생성일자]") {
-                const created = Entry.user.created || "unknown";
-                if (val !== created) v.setValue(created);
-            } 
-            else if (n === "[?계정유형]") {
-                const role = Entry.user.role || "member";
-                if (val !== role) v.setValue(role);
-            } 
-            else if (n === "[?프로필id]") {
-                const pimg = Entry.user.image || "none";
-                if (val !== pimg) v.setValue(pimg);
+                v.setValue(isFull ? "TRUE" : "FALSE");
             }
+
+            // 3. [?운영체제]
+            if (n.includes("운영체제")) {
+                const os = navigator.platform.toLowerCase();
+                v.setValue(os.includes("win") ? "WINDOWS" : os.includes("mac") ? "MACOS" : "LINUX");
+            }
+
+            // 4. [?스크롤] - 루프에서 시간 체크해서 NONE으로 강제 복귀
+            if (n.includes("스크롤")) {
+                if (Date.now() - lastWheelTime > 150) {
+                    if (v.getValue() !== "NONE") v.setValue("NONE");
+                } else {
+                    if (v.getValue() !== window._lastScrollDir) v.setValue(window._lastScrollDir);
+                }
+            }
+
+            // 5. [?우클릭]
+            if (n.includes("우클릭")) v.setValue(isRightClick ? "TRUE" : "FALSE");
+
+            // 6. [?마우스 커서]
+            if (n.includes("마우스 커서")) {
+                const url = v.getValue();
+                if (url && url !== "NONE" && url !== 0 && canvas) canvas.style.cursor = `url("${url}"), auto`;
+            }
+
+            // 7. [?유저id]
+            if (n.includes("유저id")) v.setValue(user._id || "GUEST");
+
+            // 8. [?화면 해상도]
+            if (n.includes("화면 해상도") && canvas) v.setValue(`${canvas.width}x${canvas.height}`);
+
+            // 9. [?링크 열기]
+            if (n.includes("링크 열기")) {
+                const url = v.getValue();
+                if (url && url !== "NONE" && url !== 0 && url !== "") {
+                    let target = url.includes("playentry.org") ? url : "https://playentry.org/redirect?external=" + encodeURIComponent(url);
+                    window.open(target, '_blank');
+                    v.setValue("NONE");
+                }
+            }
+
+            // 10. [?계정생성일자]
+            if (n.includes("계정생성일자")) v.setValue(user.created || "unknown");
+
+            // 11. [?계정유형]
+            if (n.includes("계정유형")) v.setValue(user.role || "member");
+
+            // 12. [?프로필id]
+            if (n.includes("프로필id")) v.setValue(user.image || "none");
         });
 
+        // 엔트리 화면 강제 갱신
         if (Entry.requestUpdate) Entry.requestUpdate();
     };
 
-    setInterval(coreLoop, 100);
+    // 0.05초마다 매우 빠르게 체크 (반응성 극대화)
+    setInterval(coreLoop, 50;
 })();
