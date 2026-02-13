@@ -1,99 +1,111 @@
 (function() {
-    let scrollTimer = null;
-    let scene, camera, renderer;
+    let lastWheelTime = 0;
+    let isRightClick = false;
 
-    if (!window.THREE) {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-        document.head.appendChild(s);
-    }
+    // 우클릭 상태 감지
+    window.addEventListener('mousedown', (e) => { if (e.button === 2) isRightClick = true; });
+    window.addEventListener('mouseup', (e) => { if (e.button === 2) isRightClick = false; });
+    window.addEventListener('contextmenu', (e) => {
+        // [?우클릭] 변수가 있을 때만 기본 메뉴 차단 (선택 사항)
+        if (typeof Entry !== 'undefined' && Entry.variableContainer?.variables_.find(v => v.getName() === "[?우클릭]")) {
+            e.preventDefault();
+        }
+    });
 
-    const initRenderer = () => {
-        if (window._entry_ext_renderer) return;
-        const canvas = document.querySelector('#entryCanvas') || document.querySelector('canvas');
-        if (!canvas) return;
-
-        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-        renderer.domElement.style.cssText = `
-            position: absolute; top: ${canvas.offsetTop}px; left: ${canvas.offsetLeft}px;
-            pointer-events: none; z-index: 10;
-        `;
-        canvas.parentElement.appendChild(renderer.domElement);
-
-        scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-        camera.position.z = 5;
-        window._entry_ext_renderer = renderer;
-
-        const animate = () => {
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
-        };
-        animate();
-    };
-
-    // 스크롤 리스너 강화
-    if (!window._has_scroll_ev) {
-        window._has_scroll_ev = true;
-        window.addEventListener('wheel', (e) => {
-            if (typeof Entry === 'undefined' || !Entry.variableContainer) return;
-            
-            const vars = Entry.variableContainer.variables_;
-            const scrollVar = vars.find(v => v.getName() === "[스크롤]");
-            
-            if (scrollVar) {
-                // 1. 즉시 업/다운 반영
-                const val = e.deltaY > 0 ? "down" : "up";
-                scrollVar.setValue(val);
-                if (Entry.requestUpdate) Entry.requestUpdate();
-
-                // 2. 기존 타이머 제거 후 새로 생성
-                if (scrollTimer) clearTimeout(scrollTimer);
-                
-                scrollTimer = setTimeout(() => {
-                    // 타이머 안에서 변수를 다시 찾아서 0 주입 (안전장치)
-                    const sVar = Entry.variableContainer.variables_.find(v => v.getName() === "[스크롤]");
-                    if (sVar) {
-                        sVar.setValue(0);
-                        // 엔트리 엔진에 강제 업데이트 신호 전달
-                        if (Entry.requestUpdate) Entry.requestUpdate();
-                        if (typeof Entry.container === 'object') Entry.container.updateList(); 
-                    }
-                    scrollTimer = null;
-                }, 100); // 0.1초로 살짝 단축해서 반응성 상향
-            }
-        }, { passive: true });
-    }
+    // 휠 이벤트 리스너
+    window.addEventListener('wheel', (e) => {
+        if (typeof Entry === 'undefined' || !Entry.variableContainer) return;
+        const v = Entry.variableContainer.variables_.find(v => v.getName() === "[?스크롤]");
+        if (v) {
+            lastWheelTime = Date.now();
+            v.setValue(e.deltaY > 0 ? "DOWN" : "UP");
+            if (Entry.requestUpdate) Entry.requestUpdate();
+        }
+    }, { passive: true });
 
     const coreLoop = () => {
-        if (typeof Entry === 'undefined' || !Entry.variableContainer) return;
-
-        initRenderer();
-
-        if (!Entry.add_mesh) {
-            Entry.add_mesh = function(type = 'cube', color = 0x00ff00) {
-                const geo = type === 'sphere' ? new THREE.SphereGeometry(0.5, 32, 32) : new THREE.BoxGeometry(1, 1, 1);
-                const mat = new THREE.MeshLambertMaterial({ color });
-                const mesh = new THREE.Mesh(geo, mat);
-                scene.add(mesh);
-                return mesh;
-            };
-        }
+        if (typeof Entry === 'undefined' || !Entry.variableContainer || !Entry.user) return;
 
         const vars = Entry.variableContainer.variables_;
+        const canvas = document.querySelector('#entryCanvas') || document.querySelector('canvas');
+
         vars.forEach(v => {
             const n = v.getName();
-            if (n === "[작품ID]") {
-                if (v.getValue() !== Entry.projectId) v.setValue(Entry.projectId || "");
+            const val = v.getValue();
+
+            switch(n) {
+                case "[?함수바나나]":
+                    if (val !== "TRUE") v.setValue("TRUE");
+                    break;
+
+                case "[?전체화면]":
+                    const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement);
+                    const fullStatus = isFull ? "TRUE" : "FALSE";
+                    if (val !== fullStatus) v.setValue(fullStatus);
+                    break;
+
+                case "[?운영체제]":
+                    const os = navigator.platform.toLowerCase();
+                    let osName = "UNKNOWN";
+                    if (os.includes("win")) osName = "WINDOWS";
+                    else if (os.includes("mac")) osName = "MACOS";
+                    else if (os.includes("linux")) osName = "LINUX";
+                    if (val !== osName) v.setValue(osName);
+                    break;
+
+                case "[?스크롤]":
+                    if (Date.now() - lastWheelTime > 150 && val !== "NONE") {
+                        v.setValue("NONE");
+                    }
+                    break;
+
+                case "[?우클릭]":
+                    const rcStatus = isRightClick ? "TRUE" : "FALSE";
+                    if (val !== rcStatus) v.setValue(rcStatus);
+                    break;
+
+                case "[?마우스 커서]":
+                    if (val && val !== "NONE" && canvas.style.cursor !== `url("${val}"), auto`) {
+                        canvas.style.cursor = `url("${val}"), auto`;
+                    }
+                    break;
+
+                case "[?유저id]":
+                    if (val !== Entry.user._id) v.setValue(Entry.user._id || "GUEST");
+                    break;
+
+                case "[?화면 해상도]":
+                    const res = canvas ? `${canvas.width}x${canvas.height}` : "0x00";
+                    if (val !== res) v.setValue(res);
+                    break;
+
+                case "[?링크 열기]":
+                    if (val !== "NONE" && val !== "") {
+                        let url = val;
+                        if (!url.includes("playentry.org")) {
+                            url = "https://playentry.org/redirect?external=" + encodeURIComponent(url);
+                        }
+                        window.open(url, '_blank');
+                        v.setValue("NONE"); // 실행 후 초기화
+                    }
+                    break;
+
+                case "[?계정생성일자]":
+                    if (val !== Entry.user.created) v.setValue(Entry.user.created || "");
+                    break;
+
+                case "[?계정유형]":
+                    if (val !== Entry.user.role) v.setValue(Entry.user.role || "member");
+                    break;
+
+                case "[?프로필id]":
+                    if (val !== Entry.user.image) v.setValue(Entry.user.image || "");
+                    break;
             }
-            if (n === "[마우스x]") v.setValue(Entry.stage.mouseTickX);
-            if (n === "[마우스y]") v.setValue(Entry.stage.mouseTickY);
         });
 
         if (Entry.requestUpdate) Entry.requestUpdate();
     };
 
-    setInterval(coreLoop, 500);
+    setInterval(coreLoop, 100);
 })();
-
